@@ -41,3 +41,13 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# CodeValid — auto-added
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+__pycache__/
+.pytest_cache/
+.venv/
