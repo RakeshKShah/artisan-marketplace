@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum SellerStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum ProductStatus {
+  ACTIVE
+  REMOVED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(BUYER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sellerProfile SellerProfile?
+  orders        Order[]
+  cart          Cart?
+  reviews       Review[]
+}
+
+model SellerProfile {
+  id              String       @id @default(cuid())
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeName       String
+  bio             String
+  status          SellerStatus @default(PENDING)
+  stripeAccountId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  products      Product[]
+  orderItems    OrderItem[]
+  notifications Notification[]
+  payouts       Payout[]
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  products Product[]
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  sellerId    String
+  seller      SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  title       String
+  description String
+  priceCents  Int
+  stock       Int           @default(0)
+  imageUrl    String
+  status      ProductStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+  reviews    Review[]
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int     @default(1)
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id                    String      @id @default(cuid())
+  buyerId               String
+  buyer                 User        @relation(fields: [buyerId], references: [id])
+  status                OrderStatus @default(PENDING)
+  totalCents            Int
+  stripePaymentIntentId String?
+  stripeSessionId       String?
+  shippingName          String?
+  shippingAddress       String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  items OrderItem[]
+}
+
+model OrderItem {
+  id                  String        @id @default(cuid())
+  orderId             String
+  order               Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product       @relation(fields: [productId], references: [id])
+  sellerId            String
+  seller              SellerProfile @relation(fields: [sellerId], references: [id])
+  quantity            Int
+  priceCents          Int
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  payoutId            String?
+  payout              Payout?       @relation(fields: [payoutId], references: [id])
+  platformFeeCents    Int           @default(0)
+  sellerEarningsCents Int           @default(0)
+
+  review Review?
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  orderItemId String    @unique
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  buyerId     String
+  buyer       User      @relation(fields: [buyerId], references: [id])
+  rating      Int
+  comment     String
+  createdAt   DateTime  @default(now())
+}
+
+model Notification {
+  id        String        @id @default(cuid())
+  sellerId  String
+  seller    SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  read      Boolean       @default(false)
+  orderId   String?
+  createdAt DateTime      @default(now())
+}
+
+model Payout {
+  id               String      @id @default(cuid())
+  sellerId         String
+  seller           SellerProfile @relation(fields: [sellerId], references: [id])
+  amountCents      Int
+  platformFeeCents Int
+  status           String      @default("PENDING")
+  weekStart        DateTime
+  weekEnd          DateTime
+  stripeTransferId String?
+  createdAt        DateTime    @default(now())
+
+  orderItems OrderItem[]
+}
